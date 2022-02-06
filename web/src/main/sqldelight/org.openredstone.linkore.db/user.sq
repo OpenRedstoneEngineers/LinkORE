@@ -1,0 +1,23 @@
+CREATE TABLE User(
+  uuid TEXT AS java.util.UUID NOT NULL PRIMARY KEY,
+  name TEXT AS String NOT NULL,
+  discordId INTEGER AS Long NOT NULL UNIQUE
+);
+
+userByUuid:
+SELECT uuid, name, discordId FROM User WHERE uuid = ?;
+
+userByDiscordId:
+SELECT * FROM User WHERE discordId = ?;
+
+userExistsByUuid:
+SELECT EXISTS(SELECT 0 FROM User WHERE uuid = ?);
+
+createUser:
+INSERT INTO User VALUES ?;
+
+updateUserName:
+UPDATE User SET name = ? WHERE uuid = ?;
+
+deleteUser:
+DELETE FROM User WHERE uuid = ?;
