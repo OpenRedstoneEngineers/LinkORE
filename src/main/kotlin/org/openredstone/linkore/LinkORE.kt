@@ -1,4 +1,4 @@
-package org.openredstone
+package org.openredstone.linkore
 
 import co.aikar.commands.VelocityCommandManager
 import com.google.inject.Inject
@@ -11,9 +11,8 @@ import com.velocitypowered.api.plugin.Dependency
 import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
-import org.openredstone.commands.Discord
-import org.openredstone.commands.Linkore
-import net.luckperms.api.LuckPerms
+import org.openredstone.linkore.commands.Discord
+import org.openredstone.linkore.commands.Linkore
 import net.luckperms.api.LuckPermsProvider
 import org.slf4j.Logger
 import java.io.File
@@ -26,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap
 fun UnlinkedUser.linkTo(discordId: Long): User = User(
     uuid = uuid,
     name = name,
-    primaryGroup = primaryGroup,
     discordId = discordId,
 )
 
@@ -43,11 +41,9 @@ class Tokens {
 
     fun tryConsume(token: String): UnlinkedUser? = tokens.remove(token)?.takeIf { it.isValid() }?.user
 
-    private fun generateToken(): String {
-        return (0 until length).map {
-            chars[secureRandom.nextInt(chars.length)]
-        }.joinToString("")
-    }
+    private fun generateToken() = (0 until length)
+        .map { chars[secureRandom.nextInt(chars.length)] }
+        .joinToString("")
 
     private fun Token.isValid(): Boolean = (createdAt + lifespan) > Instant.now()
 }
@@ -63,37 +59,40 @@ private const val VERSION = "1.0"
     authors = ["Nickster258", "PaukkuPalikka"],
     dependencies = [Dependency(id = "luckperms")]
 )
-class LinkORE @Inject constructor(val proxy: ProxyServer, val logger: Logger, @DataDirectory dataFolder: Path) {
-    lateinit var luckPerms: LuckPerms
-    lateinit var config: Config
-    lateinit var discordBot: DiscordBot
-    lateinit var database: Storage
-    lateinit var lpListener: LpListener
+class LinkORE @Inject constructor(
+    private val proxy: ProxyServer,
+    private val logger: Logger,
+    @DataDirectory dataFolder: Path,
+) {
+    private lateinit var config: Config
     private val dataFolder = dataFolder.toFile()
-    val tokens = Tokens()
 
     @Subscribe
     fun onProxyInitialization(event: ProxyInitializeEvent) {
         config = loadConfig()
-        luckPerms = LuckPermsProvider.get()
-        database = Storage(
+        val luckPerms = LuckPermsProvider.get()
+        val tokens = Tokens()
+        val database = Storage(
             config[LinkoreSpec.database.host],
             config[LinkoreSpec.database.port],
             config[LinkoreSpec.database.database],
             config[LinkoreSpec.database.username],
             config[LinkoreSpec.database.password]
         )
-        discordBot = DiscordBot(
-            this,
+        val discordBot = DiscordBot(
             config[LinkoreSpec.discord.botToken],
             config[LinkoreSpec.discord.serverId],
             config[LinkoreSpec.discord.playingMessage],
-            config[LinkoreSpec.discord.track]
+            config[LinkoreSpec.discord.track],
+            luckPerms,
+            logger,
+            database,
+            tokens
         )
-        lpListener = LpListener(this, luckPerms)
+        startLuckPermsListener(database, discordBot, this, luckPerms)
         VelocityCommandManager(proxy, this).apply {
             registerCommand(Linkore(VERSION, database, discordBot))
-            registerCommand(Discord(luckPerms, database, discordBot, tokens))
+            registerCommand(Discord(database, discordBot, tokens))
         }
         logger.info("Loaded LinkORE!!!")
     }

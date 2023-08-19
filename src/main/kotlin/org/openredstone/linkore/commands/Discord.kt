@@ -1,4 +1,4 @@
-package org.openredstone.commands
+package org.openredstone.linkore.commands
 
 import co.aikar.commands.BaseCommand
 import co.aikar.commands.annotation.CommandAlias
@@ -12,14 +12,14 @@ import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.NamedTextColor
 import net.luckperms.api.LuckPerms
 import org.openredstone.*
+import org.openredstone.linkore.*
 
 @CommandAlias("discord")
 @CommandPermission("linkore.discord")
 class Discord(
-    private val luckPerms: LuckPerms,
-    private val database: Storage,
-    private val discordBot: DiscordBot,
-    private val tokens: Tokens
+        private val database: Storage,
+        private val discordBot: DiscordBot,
+        private val tokens: Tokens
 ) : BaseCommand() {
     @Default
     @Subcommand("link")
@@ -29,11 +29,8 @@ class Discord(
             player.sendDeserialized("You are already linked!")
             return
         }
-        val lpUser = luckPerms.userManager.getUser(player.uniqueId) ?: return
-        val unlinkedUser = UnlinkedUser(player.username, player.uniqueId, lpUser.primaryGroup)
-        println(unlinkedUser)
+        val unlinkedUser = UnlinkedUser(player.username, player.uniqueId)
         val token = tokens.createFor(unlinkedUser)
-        database.insertUnlinkedUser(unlinkedUser)
         player.sendDeserialized(
             Component.text("Your token is ")
                 .append(

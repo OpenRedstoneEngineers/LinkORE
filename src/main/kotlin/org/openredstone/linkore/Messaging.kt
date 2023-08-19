@@ -1,4 +1,4 @@
-package org.openredstone
+package org.openredstone.linkore
 
 import com.velocitypowered.api.proxy.Player
 import net.kyori.adventure.text.Component

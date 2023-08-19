@@ -1,4 +1,4 @@
-package org.openredstone.commands
+package org.openredstone.linkore.commands
 
 import co.aikar.commands.BaseCommand
 import co.aikar.commands.annotation.CatchUnknown
@@ -8,17 +8,17 @@ import co.aikar.commands.annotation.Default
 import co.aikar.commands.annotation.Single
 import co.aikar.commands.annotation.Subcommand
 import com.velocitypowered.api.proxy.Player
-import org.openredstone.DiscordBot
-import org.openredstone.Storage
-import org.openredstone.sendDeserialized
+import org.openredstone.linkore.DiscordBot
+import org.openredstone.linkore.Storage
+import org.openredstone.linkore.sendDeserialized
 import java.util.*
 
 @CommandAlias("linkore")
 @CommandPermission("linkore.manage")
 class Linkore(
-    private val version: String,
-    private val database: Storage,
-    private val discordBot: DiscordBot
+        private val version: String,
+        private val database: Storage,
+        private val discordBot: DiscordBot
     ) : BaseCommand() {
     @Default
     @CatchUnknown

@@ -30,6 +30,8 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.7.3")
     implementation(group = "com.uchuhimo", name = "konf", version = "0.22.1")
     implementation(group = "net.luckperms", name = "api", version = "5.1")
     implementation(group = "org.jetbrains.exposed", name = "exposed-core", version = "0.40.1")
@@ -49,8 +51,8 @@ tasks.withType<KotlinCompile> {
 }
 
 tasks.shadowJar {
-    relocate("co.aikar.org.openredstone.commands", "linkore.acf")
-    relocate("co.aikar.locales", "linkore.locales")
+    relocate("co.aikar.commands", "org.openredstone.linkore.acf")
+    relocate("co.aikar.locales", "org.openredstone.linkore.locales")
     dependencies {
         exclude(
             dependency(

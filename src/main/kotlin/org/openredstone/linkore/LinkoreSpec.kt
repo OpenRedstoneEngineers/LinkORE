@@ -1,4 +1,4 @@
-package org.openredstone
+package org.openredstone.linkore
 
 import com.uchuhimo.konf.ConfigSpec
 
