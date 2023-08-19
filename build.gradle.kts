@@ -49,7 +49,7 @@ tasks.withType<KotlinCompile> {
 }
 
 tasks.shadowJar {
-    relocate("co.aikar.commands", "linkore.acf")
+    relocate("co.aikar.org.openredstone.commands", "linkore.acf")
     relocate("co.aikar.locales", "linkore.locales")
     dependencies {
         exclude(

@@ -1,5 +1,6 @@
-package linkore
+package org.openredstone
 
+import kotlinx.coroutines.*
 import org.javacord.api.DiscordApi
 import org.javacord.api.DiscordApiBuilder
 import org.javacord.api.entity.message.MessageFlag
@@ -10,13 +11,13 @@ import org.javacord.api.interaction.SlashCommandInteraction
 import org.javacord.api.interaction.SlashCommandOption
 import java.util.*
 
-internal fun <T> Optional<T>.toNullable(): T? = this.orElse(null)
+internal fun <T> Optional<T>.toNullable(): T? = orElse(null)
 
 fun SlashCommandInteraction.basicResponse(message: String) {
-    this.createImmediateResponder().apply {
-        this.setContent(message)
-        this.setFlags(MessageFlag.EPHEMERAL)
-        this.respond()
+    createImmediateResponder().apply {
+        setContent(message)
+        setFlags(MessageFlag.EPHEMERAL)
+        respond()
     }
 }
 
@@ -27,6 +28,8 @@ class DiscordBot(
     playingMessage: String,
     private val track: String
 ) {
+    @OptIn(DelicateCoroutinesApi::class)
+    private val scope = CoroutineScope(newSingleThreadContext("discordBot"))
     // Group 1 is the "Discord" alias, group 2 is the IGN
     private val nicknameRegex = Regex("""(.+?)\[(\w{3,16})\]""")
     private lateinit var authSlashCommand: SlashCommand
@@ -39,29 +42,33 @@ class DiscordBot(
     private var server = api.getServerById(serverId).get()
 
     init {
-        api.updateActivity(playingMessage)
-        api.getServerSlashCommands(server).join().forEach {
-            if (it.name == "auth") {
-                it.delete().get()
-                createAuthSlashCommand()
-            } else if (it.name == "unlink") {
-                it.delete().get()
-                createUnlinkSlashCommand()
+        with(api) {
+            updateActivity(playingMessage)
+            getServerSlashCommands(server).join().forEach {
+                if (it.name == "auth") {
+                    it.delete().get()
+                    createAuthSlashCommand()
+                } else if (it.name == "unlink") {
+                    it.delete().get()
+                    createUnlinkSlashCommand()
+                }
             }
+            addSlashCommandCreateListener { addResponseListener(it) }
+            addServerMemberJoinListener { addOnJoinListener(it) }
         }
-        api.addSlashCommandCreateListener { addResponseListener(it) }
-        api.addServerMemberJoinListener { addOnJoinListener(it) }
     }
 
     private fun updateRoles() {
         roles = api.roles.associate { it.name.lowercase() to it.id }
     }
 
-    fun unlinkUser(discordId: Long) {
-        unlinkUser(api.getUserById(discordId).get())
+    fun unlinkUser(discordId: Long) = scope.launch {
+        unlinkUser(withContext(Dispatchers.IO) {
+            api.getUserById(discordId).get()
+        })
     }
 
-    fun unlinkUser(discordUser: org.javacord.api.entity.user.User) {
+    private fun unlinkUser(discordUser: org.javacord.api.entity.user.User) = scope.launch {
         // TODO: 8/6/2023 Lots of dupe with syncRoles()
         updateRoles()
         // The groups in the track we care about
@@ -73,28 +80,30 @@ class DiscordBot(
         // The LP Groups of the track this user is in intersected with their Roles on Discord
         val joinedRoles = possibleGroups.toSet().intersect(currentRoles.toSet())
         joinedRoles.forEach {
-            removeRoleFromUser(roles[it]!!, discordUser)
+            removeRoleFromUser(roles.getValue(it), discordUser)
         }
         server.resetNickname(discordUser)
     }
 
-    fun syncUser(user: User) {
+    fun syncUser(user: User) = scope.launch {
         // This Discord User
-        val discordUser = api.getUserById(user.discordId).get()
+        val discordUser = withContext(Dispatchers.IO) {
+            api.getUserById(user.discordId).get()
+        }
         syncRoles(user, discordUser)
         syncName(user, discordUser)
     }
 
-    private fun syncName(user: User, discordUser: org.javacord.api.entity.user.User) {
+    private fun syncName(user: User, discordUser: org.javacord.api.entity.user.User) = scope.launch {
         val nickname = server.getNickname(discordUser).toNullable()
         if (nickname == null) {
             // No nickname present, setting it
             server.updateNickname(discordUser, user.name)
-            return
+            return@launch
         }
         if (nickname == user.name || nickname.endsWith(" [${user.name}]")) {
             // Nickname already is set on Discord
-            return
+            return@launch
         }
         val matchResult = nicknameRegex.find(nickname)
         if (matchResult == null) {
@@ -111,14 +120,14 @@ class DiscordBot(
     private fun syncRoles(
         user: User,
         discordUser: org.javacord.api.entity.user.User
-    ) {
+    ) = scope.launch {
         // TODO: 8/6/2023 Lots of dupe with unlinkUser()
         updateRoles()
         // The groups in the track we care about
         val possibleGroups = linkore.luckPerms.trackManager.loadedTracks.first { it.name == track }.groups
         if (!roles.keys.containsAll(possibleGroups)) {
             linkore.logger.error("Not all tracked groups appear in Discord. Aborting sync.")
-            return
+            return@launch
         }
         // The discord Roles this user is part of
         val discRoles = server.getRoles(discordUser)
@@ -133,7 +142,7 @@ class DiscordBot(
         }
         // This user's primary group isn't being tracked, so no need to attempt to add them
         if (user.primaryGroup !in possibleGroups) {
-            return
+            return@launch
         }
         // The Roles they are not in on Discord that they need to be added to
         val rolesToAdd = setOf(user.primaryGroup) - joinedRoles
@@ -164,10 +173,10 @@ class DiscordBot(
         val interaction = event.slashCommandInteraction
         when (interaction.commandId) {
             authSlashCommand.id -> {
-                doAuthCommand(interaction)
+                scope.launch { doAuthCommand(interaction) }
             }
             unlinkSlashCommand.id -> {
-                doUnlinkCommand(interaction)
+                scope.launch { doUnlinkCommand(interaction) }
             }
         }
     }

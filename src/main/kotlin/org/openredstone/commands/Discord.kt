@@ -1,4 +1,4 @@
-package commands
+package org.openredstone.commands
 
 import co.aikar.commands.BaseCommand
 import co.aikar.commands.annotation.CommandAlias
@@ -6,29 +6,34 @@ import co.aikar.commands.annotation.CommandPermission
 import co.aikar.commands.annotation.Default
 import co.aikar.commands.annotation.Subcommand
 import com.velocitypowered.api.proxy.Player
-import linkore.LinkORE
-import linkore.UnlinkedUser
-import linkore.sendDeserialized
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.NamedTextColor
+import net.luckperms.api.LuckPerms
+import org.openredstone.*
 
 @CommandAlias("discord")
 @CommandPermission("linkore.discord")
-class Discord(private val linkore: LinkORE) : BaseCommand() {
+class Discord(
+    private val luckPerms: LuckPerms,
+    private val database: Storage,
+    private val discordBot: DiscordBot,
+    private val tokens: Tokens
+) : BaseCommand() {
     @Default
     @Subcommand("link")
     fun link(player: Player) {
-        val existingUser = linkore.database.getUser(player.uniqueId)
+        val existingUser = database.getUser(player.uniqueId)
         if (existingUser != null) {
             player.sendDeserialized("You are already linked!")
             return
         }
-        val lpUser = linkore.luckPerms.userManager.getUser(player.uniqueId) ?: return
+        val lpUser = luckPerms.userManager.getUser(player.uniqueId) ?: return
         val unlinkedUser = UnlinkedUser(player.username, player.uniqueId, lpUser.primaryGroup)
-        val token = linkore.tokens.createFor(unlinkedUser)
-        linkore.database.insertUnlinkedUser(unlinkedUser)
+        println(unlinkedUser)
+        val token = tokens.createFor(unlinkedUser)
+        database.insertUnlinkedUser(unlinkedUser)
         player.sendDeserialized(
             Component.text("Your token is ")
                 .append(
@@ -43,12 +48,12 @@ class Discord(private val linkore: LinkORE) : BaseCommand() {
     }
     @Subcommand("unlink")
     fun unlink(player: Player) {
-        val existingUser = linkore.database.getUser(player.uniqueId) ?: run {
+        val existingUser = database.getUser(player.uniqueId) ?: run {
             player.sendDeserialized("You are not currently linked.")
             return
         }
-        linkore.discordBot.unlinkUser(existingUser.discordId)
-        linkore.database.unlinkUser(existingUser.discordId)
+        discordBot.unlinkUser(existingUser.discordId)
+        database.unlinkUser(existingUser.discordId)
         player.sendDeserialized("You should now be unlinked.")
     }
 }

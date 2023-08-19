@@ -1,4 +1,4 @@
-package linkore
+package org.openredstone
 
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -42,7 +42,7 @@ class Storage(
     }
 
     fun unlinkUser(discordId: Long) = transaction(db) {
-        Users.deleteWhere { Users.discord_id eq discordId }
+        Users.deleteWhere { discord_id eq discordId }
     }
 
     fun updatePrimaryGroup(uuid: UUID, primaryGroup: String) = transaction(db) {
@@ -54,14 +54,14 @@ class Storage(
     fun insertUnlinkedUser(unlinkedUser: UnlinkedUser) = transaction(db) {
         if (Users.select { Users.uuid eq unlinkedUser.uuid.toString() }.count() == 0L) {
             Users.insert {
-                it[Users.uuid] = uuid.toString()
-                it[Users.ign] = ign
-                it[Users.primaryGroup] = primaryGroup
+                it[uuid] = unlinkedUser.uuid.toString()
+                it[ign] = unlinkedUser.name
+                it[primaryGroup] = unlinkedUser.primaryGroup
             }
         } else {
             Users.update({ Users.uuid eq unlinkedUser.uuid.toString()}) {
-                it[this.ign] = ign
-                it[this.primaryGroup] = primaryGroup
+                it[ign] = unlinkedUser.name
+                it[primaryGroup] = unlinkedUser.primaryGroup
             }
         }
     }

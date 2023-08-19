@@ -1,4 +1,4 @@
-package linkore
+package org.openredstone
 
 import co.aikar.commands.VelocityCommandManager
 import com.google.inject.Inject
@@ -11,8 +11,8 @@ import com.velocitypowered.api.plugin.Dependency
 import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
-import commands.Discord
-import commands.Linkore
+import org.openredstone.commands.Discord
+import org.openredstone.commands.Linkore
 import net.luckperms.api.LuckPerms
 import net.luckperms.api.LuckPermsProvider
 import org.slf4j.Logger
@@ -92,8 +92,8 @@ class LinkORE @Inject constructor(val proxy: ProxyServer, val logger: Logger, @D
         )
         lpListener = LpListener(this, luckPerms)
         VelocityCommandManager(proxy, this).apply {
-            registerCommand(Linkore(this@LinkORE))
-            registerCommand(Discord(this@LinkORE))
+            registerCommand(Linkore(VERSION, database, discordBot))
+            registerCommand(Discord(luckPerms, database, discordBot, tokens))
         }
         logger.info("Loaded LinkORE!!!")
     }
@@ -114,9 +114,5 @@ class LinkORE @Inject constructor(val proxy: ProxyServer, val logger: Logger, @D
         loadedConfig.toYaml.toFile(configFile)
         logger.info("${if (reloaded) "Rel" else "L"}oaded config.yml")
         return loadedConfig
-    }
-
-    fun getVersion(): String {
-        return VERSION
     }
 }
