@@ -6,6 +6,7 @@ object LinkoreSpec : ConfigSpec("") {
     object discord : ConfigSpec() {
         val serverId by optional(1234L)
         val botToken by optional("nouNetwork")
+        val logChannelId by optional(1234L)
         val playingMessage by optional("on the ORE \uD83D\uDE0E")
         val track by optional("trackName")
     }

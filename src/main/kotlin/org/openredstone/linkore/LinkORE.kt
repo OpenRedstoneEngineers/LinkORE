@@ -83,13 +83,14 @@ class LinkORE @Inject constructor(
             config[LinkoreSpec.discord.botToken],
             config[LinkoreSpec.discord.serverId],
             config[LinkoreSpec.discord.playingMessage],
+            config[LinkoreSpec.discord.logChannelId],
             config[LinkoreSpec.discord.track],
             luckPerms,
             logger,
             database,
             tokens
         )
-        startLuckPermsListener(database, discordBot, this, luckPerms)
+        startLuckPermsListener(database, discordBot, this, this.proxy.scheduler, luckPerms)
         VelocityCommandManager(proxy, this).apply {
             registerCommand(Linkore(VERSION, database, discordBot))
             registerCommand(Discord(database, discordBot, tokens))

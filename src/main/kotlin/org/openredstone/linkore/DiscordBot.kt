@@ -28,6 +28,7 @@ class DiscordBot(
     token: String,
     serverId: Long,
     playingMessage: String,
+    logChannelId: Long,
     private val track: String,
     private val luckPerms: LuckPerms,
     private val logger: Logger,
@@ -44,6 +45,8 @@ class DiscordBot(
         .login().join()
     private val server = api.getServerById(serverId).toNullable()
         ?: throw Exception("Cannot find Discord server with id $serverId")
+    private val logChannel = server.getTextChannelById(logChannelId).toNullable()
+    private val possibleGroups = luckPerms.trackManager.getTrack(track)!!.groups.toSet()
 
     init {
         with(api) {
@@ -62,27 +65,29 @@ class DiscordBot(
     }
 
     private fun unlinkUser(discordUser: JavacordUser) {
-        // TODO: 8/6/2023 Lots of dupe with syncRoles()
         val roles = updateRoles()
-        // The groups in the track we care about
-        val possibleGroups = luckPerms.trackManager.getTrack(track)!!.groups
         // The discord Roles this user is part of
         val discRoles = server.getRoles(discordUser)
         // The Roles we actually care about
         val currentRoles = discRoles.filter { it.name in possibleGroups }.map { it.name }
         // The LP Groups of the track this user is in intersected with their Roles on Discord
-        val joinedRoles = possibleGroups.toSet().intersect(currentRoles.toSet())
+        val joinedRoles = possibleGroups.intersect(currentRoles.toSet())
         joinedRoles.forEach {
             server.removeRoleFromUser(discordUser, roles.getValue(it))
         }
         server.resetNickname(discordUser)
     }
 
-    fun syncUser(user: User) {
+    fun syncUser(user: User, primaryGroup: String = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup) {
         // This Discord User
         val discordUser = api.getUserById(user.discordId).join()
-        syncRoles(user, discordUser)
+        syncRoles(discordUser, primaryGroup)
         syncName(user, discordUser)
+    }
+
+    private fun sendLogMessage(message: String) {
+        logChannel?.sendMessage(message)
+        //    ?: throw Exception("Invalid public log channel $logChannelId")
     }
 
     private fun syncName(user: User, discordUser: JavacordUser) {
@@ -108,13 +113,8 @@ class DiscordBot(
         server.updateNickname(discordUser, newName).join()
     }
 
-    private fun syncRoles(user: User, discordUser: JavacordUser) {
-        // TODO: 8/6/2023 Lots of dupe with unlinkUser()
+    private fun syncRoles(discordUser: JavacordUser, primaryGroup: String) {
         val roles = updateRoles()
-        // The groups in the track we care about
-        // TODO: passed as an argument?
-        val possibleGroups = luckPerms.trackManager.getTrack(track)!!.groups.toSet()
-        val primaryGroup = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup
         if (!roles.keys.containsAll(possibleGroups)) {
             logger.error("Not all tracked groups appear in Discord. Aborting sync.")
             return
@@ -128,12 +128,23 @@ class DiscordBot(
         rolesToRemove.forEach {
             server.removeRoleFromUser(discordUser, roles.getValue(it))
         }
+        val removedMessage = "Removed `${discordUser.getDisplayName(server)}` from ${rolesToRemove.joinToString("`, `", "`", "`")}"
         if (primaryGroup !in possibleGroups) {
             // This user's primary group isn't being tracked, so no need to attempt to add them
+            if (rolesToRemove.isNotEmpty()) {
+                sendLogMessage(removedMessage)
+            }
             return
         }
-        // Add the role corresponding to the user's primary group to the user
-        server.addRoleToUser(discordUser, roles.getValue(primaryGroup))
+        if (primaryGroup !in currentRoles) {
+            // Add the role corresponding to the user's primary group to the user
+            server.addRoleToUser(discordUser, roles.getValue(primaryGroup))
+            if (rolesToRemove.isNotEmpty()) {
+                sendLogMessage("$removedMessage\n Adding `${discordUser.getDisplayName(server)}` to `${primaryGroup}`")
+            } else {
+                sendLogMessage("Adding `${discordUser.getDisplayName(server)}` to `${primaryGroup}`")
+            }
+        }
     }
 
     private fun onJoinListener(event: ServerMemberJoinEvent) {
@@ -155,7 +166,8 @@ class DiscordBot(
     }
 
     private fun doAuthCommand(interaction: SlashCommandInteraction) {
-        val existingUser = database.getUser(interaction.user.id)
+        val userId = interaction.user.id
+        val existingUser = database.getUser(userId)
         if (existingUser != null) {
             interaction.basicResponse("You are already linked to ${existingUser.name} (`${existingUser.uuid}`)")
             return
@@ -165,8 +177,9 @@ class DiscordBot(
             interaction.basicResponse("Invalid code provided! I do not recognize the token `$token`.")
             return
         }
-        val linkedUser = unlinkedUser.linkTo(interaction.user.id)
+        val linkedUser = unlinkedUser.linkTo(userId)
         database.linkUser(linkedUser)
+        sendLogMessage("Linking user <@$userId>")
         syncUser(linkedUser)
         interaction.basicResponse("You are now linked to **${linkedUser.name}** (`${linkedUser.uuid}`)!")
     }
