@@ -196,7 +196,7 @@ class DiscordBot(
 
     private fun createAuthSlashCommand(): SlashCommand = SlashCommand
         .with(
-            "auth", "Link your Discord account with your Minecraft account!",
+            "link", "Link your Discord account with your Minecraft account!",
             listOf(
                 SlashCommandOption.createStringOption(
                     "code",

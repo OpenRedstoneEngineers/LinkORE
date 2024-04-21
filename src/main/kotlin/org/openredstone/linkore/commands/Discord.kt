@@ -10,8 +10,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.NamedTextColor
-import net.luckperms.api.LuckPerms
-import org.openredstone.*
+import net.kyori.adventure.text.format.TextDecoration
 import org.openredstone.linkore.*
 
 @CommandAlias("discord")
@@ -32,16 +31,26 @@ class Discord(
         val unlinkedUser = UnlinkedUser(player.username, player.uniqueId)
         val token = tokens.createFor(unlinkedUser)
         player.sendDeserialized(
-            Component.text("Your token is ")
+            Component.text("You can join the DiscOREd by clicking ")
+                .append(
+                    Component.text("[HERE]", NamedTextColor.WHITE)
+                        .hoverEvent(HoverEvent.showText(Component.text("Go to DiscOREd")))
+                        .clickEvent(ClickEvent.openUrl("https://openredstone.org/discord"))
+                )
+        )
+        player.sendDeserialized("To access all of the channels in the DiscOREd, you'll need to link your account.")
+        player.sendDeserialized(
+            Component.text("[(•_•)] In Discord, run ")
+                .append(Component.text("/link ", NamedTextColor.WHITE))
                 .append(
                     Component.text(token, NamedTextColor.WHITE)
                         .hoverEvent(HoverEvent.showText(Component.text("Click to copy")))
                         .clickEvent(ClickEvent.copyToClipboard(token))
                 )
-                .append(Component.text(". Run "))
-                .append(Component.text("/auth $token", NamedTextColor.WHITE))
-                .append(Component.text(" on Discord to finish linking"))
+                .append(Component.text(" to link your account."))
         )
+        player.sendDeserialized(Component.text("Your link code is secret. Do not share it with anyone.")
+            .decorate(TextDecoration.ITALIC, TextDecoration.BOLD))
     }
     @Subcommand("unlink")
     fun unlink(player: Player) {
