@@ -10,6 +10,7 @@ import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.NamedTextColor
+import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
 import org.openredstone.linkore.*
 
@@ -40,14 +41,19 @@ class Discord(
         )
         player.sendDeserialized("To access all of the channels in the DiscOREd, you'll need to link your account.")
         player.sendDeserialized(
-            Component.text("[(•_•)] In Discord, run ")
+            Component.text("[", NamedTextColor.WHITE)
+                .append(Component.text("(•_•)", TextColor.fromHexString("#5865f2")))
+                .append(Component.text("]", NamedTextColor.WHITE))
+                .append(Component.text(" In ", NamedTextColor.GRAY))
+                .append(Component.text("Discord", TextColor.fromHexString("#5865f2")))
+                .append(Component.text(", run ", NamedTextColor.GRAY))
                 .append(Component.text("/link ", NamedTextColor.WHITE))
                 .append(
                     Component.text(token, NamedTextColor.WHITE)
                         .hoverEvent(HoverEvent.showText(Component.text("Click to copy")))
                         .clickEvent(ClickEvent.copyToClipboard(token))
                 )
-                .append(Component.text(" to link your account."))
+                .append(Component.text(" to link your account.", NamedTextColor.GRAY))
         )
         player.sendDeserialized(Component.text("Your link code is secret. Do not share it with anyone.")
             .decorate(TextDecoration.ITALIC, TextDecoration.BOLD))
