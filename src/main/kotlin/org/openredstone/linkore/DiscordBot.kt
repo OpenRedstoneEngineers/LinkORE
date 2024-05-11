@@ -1,7 +1,5 @@
 package org.openredstone.linkore
 
-import kotlinx.coroutines.*
-import kotlinx.coroutines.future.await
 import net.luckperms.api.LuckPerms
 import org.javacord.api.DiscordApiBuilder
 import org.javacord.api.entity.message.MessageFlag
@@ -38,6 +36,7 @@ class DiscordBot(
     // Group 1 is the "Discord" alias, group 2 is the IGN
     private val nicknameRegex = Regex("""(.+?)\[(\w{3,16})\]""")
     private val authSlashCommand: SlashCommand
+    private val discordSlashCommand: SlashCommand
     private val unlinkSlashCommand: SlashCommand
     private val api = DiscordApiBuilder()
         .setToken(token)
@@ -52,6 +51,7 @@ class DiscordBot(
         with(api) {
             updateActivity(playingMessage)
             authSlashCommand = createAuthSlashCommand()
+            discordSlashCommand = createDiscordSlashCommand()
             unlinkSlashCommand = createUnlinkSlashCommand()
             addSlashCommandCreateListener(::responseListener)
             addServerMemberJoinListener(::onJoinListener)
@@ -159,6 +159,9 @@ class DiscordBot(
             authSlashCommand.id -> {
                 doAuthCommand(interaction)
             }
+            discordSlashCommand.id -> {
+                doDiscordCommand(interaction)
+            }
             unlinkSlashCommand.id -> {
                 doUnlinkCommand(interaction)
             }
@@ -184,6 +187,10 @@ class DiscordBot(
         interaction.basicResponse("You are now linked to **${linkedUser.name}** (`${linkedUser.uuid}`)!")
     }
 
+    private fun doDiscordCommand(interaction: SlashCommandInteraction) {
+        interaction.basicResponse("This command needs to be ran ingame. Join `mc.openredstone.org` in Minecraft Java edition.")
+    }
+
     private fun doUnlinkCommand(interaction: SlashCommandInteraction) {
         database.getUser(interaction.user.id) ?: run {
             interaction.basicResponse("You are not linked to any Minecraft account!")
@@ -205,6 +212,11 @@ class DiscordBot(
                 )
             )
         )
+        .createForServer(server)
+        .join()
+
+    private fun createDiscordSlashCommand(): SlashCommand = SlashCommand
+        .with("discord", "This needs to be ran ingame")
         .createForServer(server)
         .join()
 
