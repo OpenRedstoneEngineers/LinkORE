@@ -45,7 +45,9 @@ class DiscordBot(
     private val server = api.getServerById(serverId).toNullable()
         ?: throw Exception("Cannot find Discord server with id $serverId")
     private val logChannel = server.getTextChannelById(logChannelId).toNullable()
-    private val possibleGroups = luckPerms.trackManager.getTrack(track)!!.groups.toSet()
+    private val possibleGroups = luckPerms.trackManager.getTrack(track)!!.groups.map {
+        luckPerms.groupManager.getGroup(it)?.displayName?.lowercase() ?: it
+    }.toSet()
 
     init {
         with(api) {
@@ -120,7 +122,7 @@ class DiscordBot(
             return
         }
         // The discord Roles this user is part of
-        val discRoles = server.getRoles(discordUser).map { it.name }.toSet()
+        val discRoles = server.getRoles(discordUser).map { it.name.lowercase() }.toSet()
         // The Roles we actually care about
         val currentRoles = discRoles.intersect(possibleGroups)
         // The Roles they are in on Discord that they need to be removed from
