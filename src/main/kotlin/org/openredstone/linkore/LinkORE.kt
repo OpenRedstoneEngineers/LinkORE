@@ -60,7 +60,7 @@ private const val VERSION = "1.0"
     dependencies = [Dependency(id = "luckperms")]
 )
 class LinkORE @Inject constructor(
-    private val proxy: ProxyServer,
+    val proxy: ProxyServer,
     private val logger: Logger,
     @DataDirectory dataFolder: Path,
 ) {

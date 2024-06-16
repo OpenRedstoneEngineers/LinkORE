@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 fun startLuckPermsListener(
     database: Storage,
     discordBot: DiscordBot,
-    plugin: Any,
+    plugin: LinkORE,
     scheduler: Scheduler,
     lpApi: LuckPerms
 ) {
@@ -23,6 +23,13 @@ fun startLuckPermsListener(
         val linkedUser = database.getUser(event.user.uniqueId) ?: return
         val task = scheduler
             .buildTask(plugin) { _ ->
+                plugin.proxy.getPlayer(event.user.uniqueId).ifPresent {
+                    val username = it.username
+                    if (linkedUser.name != username) {
+                        linkedUser.name = username
+                        database.linkUser(linkedUser)
+                    }
+                }
                 discordBot.syncUser(linkedUser, event.user.primaryGroup)
                 userJobs.remove(uuid)
             }

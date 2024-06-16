@@ -12,7 +12,7 @@ object Users : Table("linkore_user") {
 }
 
 data class UnlinkedUser(val name: String, val uuid: UUID)
-data class User(val name: String, val uuid: UUID, val discordId: Long)
+data class User(var name: String, val uuid: UUID, val discordId: Long)
 
 class Storage(
     host: String,
@@ -35,7 +35,7 @@ class Storage(
     }
 
     fun linkUser(user: User): Unit = transaction(db) {
-        Users.insert {
+        Users.upsert {
             it[uuid] = user.uuid.toString()
             it[ign] = user.name
             it[discord_id] = user.discordId
