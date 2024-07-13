@@ -64,7 +64,7 @@ class Discord(
             player.sendDeserialized("You are not currently linked.")
             return
         }
-        discordBot.unlinkUser(existingUser.discordId)
+        handleExceptions { discordBot.clearDiscordUser(existingUser.discordId).join() }
         database.unlinkUser(existingUser.discordId)
         player.sendDeserialized("You should now be unlinked.")
     }

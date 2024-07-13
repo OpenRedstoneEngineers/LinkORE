@@ -30,7 +30,7 @@ fun startLuckPermsListener(
                         database.linkUser(linkedUser)
                     }
                 }
-                discordBot.syncUser(linkedUser, event.user.primaryGroup)
+                handleExceptions { discordBot.syncUser(linkedUser, event.user.primaryGroup).join() }
                 userJobs.remove(uuid)
             }
             .delay(waitMs, TimeUnit.MILLISECONDS)

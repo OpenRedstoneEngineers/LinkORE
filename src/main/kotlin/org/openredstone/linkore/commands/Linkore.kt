@@ -10,6 +10,7 @@ import co.aikar.commands.annotation.Subcommand
 import com.velocitypowered.api.proxy.Player
 import org.openredstone.linkore.DiscordBot
 import org.openredstone.linkore.Storage
+import org.openredstone.linkore.handleExceptions
 import org.openredstone.linkore.sendDeserialized
 import java.util.*
 
@@ -48,8 +49,8 @@ class Linkore(
                 return
             }
         }
-        player.sendDeserialized("Going to unlink $discordId")
-        discordBot.unlinkUser(linkedUser.discordId)
+        handleExceptions { discordBot.clearDiscordUser(linkedUser.discordId).join() }
         database.unlinkUser(linkedUser.discordId)
+        player.sendDeserialized("Unlinked ${linkedUser.name} from $discordId")
     }
 }

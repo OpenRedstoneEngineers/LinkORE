@@ -3,16 +3,35 @@ package org.openredstone.linkore
 import net.luckperms.api.LuckPerms
 import org.javacord.api.DiscordApiBuilder
 import org.javacord.api.entity.message.MessageFlag
+import org.javacord.api.entity.permission.PermissionType
 import org.javacord.api.event.interaction.SlashCommandCreateEvent
 import org.javacord.api.event.server.member.ServerMemberJoinEvent
+import org.javacord.api.exception.MissingPermissionsException
 import org.javacord.api.interaction.SlashCommand
 import org.javacord.api.interaction.SlashCommandInteraction
 import org.javacord.api.interaction.SlashCommandOption
+import org.javacord.api.interaction.SlashCommandOptionType
 import org.slf4j.Logger
 import java.util.*
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 import org.javacord.api.entity.user.User as JavacordUser
 
 internal fun <T> Optional<T>.toNullable(): T? = orElse(null)
+
+fun String.discordEscape() = this.replace("""_""", "\\_")
+
+fun <T> handleExceptions(action: () -> T): T? {
+    return try {
+        action()
+    } catch (exception: MissingPermissionsException) {
+        println(exception)
+        null
+    } catch (exception: CompletionException) {
+        println(exception)
+        null
+    }
+}
 
 fun SlashCommandInteraction.basicResponse(message: String) {
     createImmediateResponder().apply {
@@ -37,7 +56,9 @@ class DiscordBot(
     private val nicknameRegex = Regex("""(.+?)\[(\w{3,16})\]""")
     private val authSlashCommand: SlashCommand
     private val discordSlashCommand: SlashCommand
+    private val forceSyncSlashCommand: SlashCommand
     private val unlinkSlashCommand: SlashCommand
+    private val whoisSlashCommand: SlashCommand
     private val api = DiscordApiBuilder()
         .setToken(token)
         .setAllIntents()
@@ -54,7 +75,9 @@ class DiscordBot(
             updateActivity(playingMessage)
             authSlashCommand = createAuthSlashCommand()
             discordSlashCommand = createDiscordSlashCommand()
+            forceSyncSlashCommand = createForceSyncSlashCommand()
             unlinkSlashCommand = createUnlinkSlashCommand()
+            whoisSlashCommand = createWhoisSlashCommand()
             addSlashCommandCreateListener(::responseListener)
             addServerMemberJoinListener(::onJoinListener)
         }
@@ -62,11 +85,10 @@ class DiscordBot(
 
     private fun updateRoles() = server.roles.associate { it.name.lowercase() to it }
 
-    fun unlinkUser(discordId: Long) {
-        api.getUserById(discordId).join()
-    }
+    fun clearDiscordUser(discordId: Long) : CompletableFuture<Void> =
+        clearDiscordUser(api.getUserById(discordId).join())
 
-    private fun unlinkUser(discordUser: JavacordUser) {
+    private fun clearDiscordUser(discordUser: JavacordUser) : CompletableFuture<Void> {
         val roles = updateRoles()
         // The discord Roles this user is part of
         val discRoles = server.getRoles(discordUser)
@@ -74,17 +96,22 @@ class DiscordBot(
         val currentRoles = discRoles.filter { it.name in possibleGroups }.map { it.name }
         // The LP Groups of the track this user is in intersected with their Roles on Discord
         val joinedRoles = possibleGroups.intersect(currentRoles.toSet())
+        val futures = mutableListOf<CompletableFuture<Void>>()
         joinedRoles.forEach {
-            server.removeRoleFromUser(discordUser, roles.getValue(it))
+            futures.add(server.removeRoleFromUser(discordUser, roles.getValue(it)))
         }
-        server.resetNickname(discordUser)
+        futures.add(server.resetNickname(discordUser))
+        return CompletableFuture.allOf(*futures.toTypedArray())
     }
 
-    fun syncUser(user: User, primaryGroup: String = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup) {
+    fun syncUser(user: User, primaryGroup: String = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup) : CompletableFuture<Void> {
         // This Discord User
         val discordUser = api.getUserById(user.discordId).join()
-        syncRoles(discordUser, primaryGroup)
-        syncName(user, discordUser)
+        val futures = listOfNotNull(
+            syncRoles(discordUser, primaryGroup),
+            syncName(user, discordUser)
+        )
+        return CompletableFuture.allOf(*futures.toTypedArray())
     }
 
     private fun sendLogMessage(message: String) {
@@ -92,16 +119,16 @@ class DiscordBot(
         //    ?: throw Exception("Invalid public log channel $logChannelId")
     }
 
-    private fun syncName(user: User, discordUser: JavacordUser) {
+    private fun syncName(user: User, discordUser: JavacordUser) : CompletableFuture<Void>? {
         val nickname = server.getNickname(discordUser).toNullable()
         if (nickname == null) {
             // No nickname present, setting it
             server.updateNickname(discordUser, user.name)
-            return
+            return null
         }
         if (nickname == user.name || nickname.endsWith(" [${user.name}]")) {
             // Nickname already is set on Discord
-            return
+            return null
         }
         val matchResult = nicknameRegex.find(nickname)
         val newName = if (matchResult == null) {
@@ -112,23 +139,27 @@ class DiscordBot(
             val existingAlias = matchResult.groupValues[1].trim()
             "$existingAlias [${user.name}]"
         }
-        server.updateNickname(discordUser, newName).join()
+        return server.updateNickname(discordUser, newName)
     }
 
-    private fun syncRoles(discordUser: JavacordUser, primaryGroup: String) {
+    private fun syncRoles(discordUser: JavacordUser, primaryGroupName: String) : CompletableFuture<Void>? {
         val roles = updateRoles()
         if (!roles.keys.containsAll(possibleGroups)) {
             logger.error("Not all tracked groups appear in Discord. Aborting sync.")
-            return
+            return null
         }
         // The discord Roles this user is part of
         val discRoles = server.getRoles(discordUser).map { it.name.lowercase() }.toSet()
         // The Roles we actually care about
         val currentRoles = discRoles.intersect(possibleGroups)
+        val primaryGroup = luckPerms.groupManager.getGroup(primaryGroupName)!!.let {
+            it.displayName ?: it.name
+        }.lowercase()
         // The Roles they are in on Discord that they need to be removed from
         val rolesToRemove = currentRoles - primaryGroup
+        val futures = mutableListOf<CompletableFuture<Void>>()
         rolesToRemove.forEach {
-            server.removeRoleFromUser(discordUser, roles.getValue(it))
+            futures.add(server.removeRoleFromUser(discordUser, roles.getValue(it)))
         }
         val removedMessage = "Removed `${discordUser.getDisplayName(server)}` from ${rolesToRemove.joinToString("`, `", "`", "`")}"
         if (primaryGroup !in possibleGroups) {
@@ -136,17 +167,18 @@ class DiscordBot(
             if (rolesToRemove.isNotEmpty()) {
                 sendLogMessage(removedMessage)
             }
-            return
+            return CompletableFuture.allOf(*futures.toTypedArray())
         }
         if (primaryGroup !in currentRoles) {
             // Add the role corresponding to the user's primary group to the user
-            server.addRoleToUser(discordUser, roles.getValue(primaryGroup))
+            futures.add(server.addRoleToUser(discordUser, roles.getValue(primaryGroup)))
             if (rolesToRemove.isNotEmpty()) {
                 sendLogMessage("$removedMessage\n Adding `${discordUser.getDisplayName(server)}` to `${primaryGroup}`")
             } else {
                 sendLogMessage("Adding `${discordUser.getDisplayName(server)}` to `${primaryGroup}`")
             }
         }
+        return CompletableFuture.allOf(*futures.toTypedArray())
     }
 
     private fun onJoinListener(event: ServerMemberJoinEvent) {
@@ -158,15 +190,11 @@ class DiscordBot(
     private fun responseListener(event: SlashCommandCreateEvent) {
         val interaction = event.slashCommandInteraction
         when (interaction.commandId) {
-            authSlashCommand.id -> {
-                doAuthCommand(interaction)
-            }
-            discordSlashCommand.id -> {
-                doDiscordCommand(interaction)
-            }
-            unlinkSlashCommand.id -> {
-                doUnlinkCommand(interaction)
-            }
+            authSlashCommand.id -> doAuthCommand(interaction)
+            discordSlashCommand.id -> doDiscordCommand(interaction)
+            unlinkSlashCommand.id -> doUnlinkCommand(interaction)
+            forceSyncSlashCommand.id -> doForceSyncCommand(interaction)
+            whoisSlashCommand.id -> doWhoisCommand(interaction)
         }
     }
 
@@ -174,7 +202,7 @@ class DiscordBot(
         val userId = interaction.user.id
         val existingUser = database.getUser(userId)
         if (existingUser != null) {
-            interaction.basicResponse("You are already linked to ${existingUser.name} (`${existingUser.uuid}`)")
+            interaction.basicResponse("You are already linked to ${existingUser.name.discordEscape()} (`${existingUser.uuid}`)")
             return
         }
         val token = interaction.arguments.first().stringValue.get()
@@ -185,8 +213,8 @@ class DiscordBot(
         val linkedUser = unlinkedUser.linkTo(userId)
         database.linkUser(linkedUser)
         sendLogMessage("Linking user <@$userId>")
-        syncUser(linkedUser)
-        interaction.basicResponse("You are now linked to **${linkedUser.name}** (`${linkedUser.uuid}`)!")
+        syncUser(linkedUser).join()
+        interaction.basicResponse("You are now linked to **${linkedUser.name.discordEscape()}** (`${linkedUser.uuid}`)!")
     }
 
     private fun doDiscordCommand(interaction: SlashCommandInteraction) {
@@ -199,9 +227,42 @@ class DiscordBot(
             return
         }
         database.unlinkUser(interaction.user.id)
-        unlinkUser(interaction.user)
+        handleExceptions { clearDiscordUser(interaction.user).join() }
         interaction.basicResponse("You are now unlinked. Run `/discord` ingame to link again.")
     }
+
+    private fun doForceSyncCommand(interaction: SlashCommandInteraction) {
+        val user = database.getUser(interaction.user.id) ?: run {
+            interaction.basicResponse("You are not linked to any Minecraft account!")
+            return
+        }
+        handleExceptions { clearDiscordUser(interaction.user).join() }
+        handleExceptions { syncUser(user).join() }
+        interaction.basicResponse("Your Discord has been synced based on your linked user.")
+    }
+
+    private fun doWhoisCommand(interaction: SlashCommandInteraction) {
+        val argument = interaction.arguments.firstOrNull() ?: run {
+            interaction.basicResponse("The user argument is required for this command.")
+            return
+        }
+        val target = argument.userValue.toNullable() ?: run {
+            interaction.basicResponse("Invalid or no user passed!")
+            return
+        }
+        val linkedUser = database.getUser(target.id) ?: run {
+            interaction.basicResponse("That user is not linked.")
+            return
+        }
+        handleExceptions { clearDiscordUser(target).join() }
+        handleExceptions { syncUser(linkedUser).join() }
+        interaction.basicResponse("User <@${target.id}> is linked to ${linkedUser.name.discordEscape()} (`${linkedUser.uuid}`)")
+    }
+
+    private fun createDiscordSlashCommand(): SlashCommand = SlashCommand
+        .with("discord", "This needs to be ran ingame.")
+        .createForServer(server)
+        .join()
 
     private fun createAuthSlashCommand(): SlashCommand = SlashCommand
         .with(
@@ -217,13 +278,20 @@ class DiscordBot(
         .createForServer(server)
         .join()
 
-    private fun createDiscordSlashCommand(): SlashCommand = SlashCommand
-        .with("discord", "This needs to be ran ingame")
+    private fun createForceSyncSlashCommand(): SlashCommand = SlashCommand
+        .with("force-sync", "Force a sync of your roles and display name with your ingame account.")
         .createForServer(server)
         .join()
 
     private fun createUnlinkSlashCommand(): SlashCommand = SlashCommand
         .with("unlink", "Unlink this Discord account from your Minecraft account!")
+        .createForServer(server)
+        .join()
+
+    private fun createWhoisSlashCommand(): SlashCommand = SlashCommand
+        .with("whois", "Look up the linking information associated with this user. It also syncs the user!")
+        .addOption(SlashCommandOption.create(SlashCommandOptionType.USER, "user", "The user to look up"))
+        .setDefaultEnabledForPermissions(PermissionType.BAN_MEMBERS)
         .createForServer(server)
         .join()
 }
