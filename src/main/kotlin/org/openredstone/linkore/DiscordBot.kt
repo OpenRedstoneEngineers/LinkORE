@@ -254,7 +254,6 @@ class DiscordBot(
             interaction.basicResponse("That user is not linked.")
             return
         }
-        handleExceptions { clearDiscordUser(target).join() }
         handleExceptions { syncUser(linkedUser).join() }
         interaction.basicResponse("User <@${target.id}> is linked to ${linkedUser.name.discordEscape()} (`${linkedUser.uuid}`)")
     }
