@@ -61,7 +61,7 @@ private const val VERSION = "1.0"
 )
 class LinkORE @Inject constructor(
     val proxy: ProxyServer,
-    private val logger: Logger,
+    val logger: Logger,
     @DataDirectory dataFolder: Path,
 ) {
     private lateinit var config: Config

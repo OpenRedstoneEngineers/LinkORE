@@ -89,16 +89,13 @@ class DiscordBot(
         clearDiscordUser(api.getUserById(discordId).join())
 
     private fun clearDiscordUser(discordUser: JavacordUser) : CompletableFuture<Void> {
-        val roles = updateRoles()
-        // The discord Roles this user is part of
+        // The discord roles this user is part of
         val discRoles = server.getRoles(discordUser)
-        // The Roles we actually care about
-        val currentRoles = discRoles.filter { it.name in possibleGroups }.map { it.name }
-        // The LP Groups of the track this user is in intersected with their Roles on Discord
-        val joinedRoles = possibleGroups.intersect(currentRoles.toSet())
+        // The user's roles we actually care about
+        val currentRoles = discRoles.filter { it.name.lowercase(Locale.getDefault()) in possibleGroups }
         val futures = mutableListOf<CompletableFuture<Void>>()
-        joinedRoles.forEach {
-            futures.add(server.removeRoleFromUser(discordUser, roles.getValue(it)))
+        currentRoles.forEach {
+            futures.add(server.removeRoleFromUser(discordUser, it))
         }
         futures.add(server.resetNickname(discordUser))
         return CompletableFuture.allOf(*futures.toTypedArray())
@@ -226,6 +223,7 @@ class DiscordBot(
             interaction.basicResponse("You are not linked to any Minecraft account!")
             return
         }
+        logger.info("Performing unlink for ${interaction.user.name} (${interaction.user.id})")
         database.unlinkUser(interaction.user.id)
         handleExceptions { clearDiscordUser(interaction.user).join() }
         interaction.basicResponse("You are now unlinked. Run `/discord` ingame to link again.")
@@ -236,6 +234,7 @@ class DiscordBot(
             interaction.basicResponse("You are not linked to any Minecraft account!")
             return
         }
+        logger.info("Performing force-sync for ${interaction.user.name} (${interaction.user.id})")
         handleExceptions { clearDiscordUser(interaction.user).join() }
         handleExceptions { syncUser(user).join() }
         interaction.basicResponse("Your Discord has been synced based on your linked user.")
@@ -254,6 +253,7 @@ class DiscordBot(
             interaction.basicResponse("That user is not linked.")
             return
         }
+        logger.info("Performing whois for ${interaction.user.name} (${interaction.user.id})")
         handleExceptions { syncUser(linkedUser).join() }
         interaction.basicResponse("User <@${target.id}> is linked to ${linkedUser.name.discordEscape()} (`${linkedUser.uuid}`)")
     }

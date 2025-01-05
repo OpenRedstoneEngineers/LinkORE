@@ -30,6 +30,7 @@ fun startLuckPermsListener(
                         database.linkUser(linkedUser)
                     }
                 }
+                plugin.logger.info("Initiating LP sync of ${linkedUser.name} (${linkedUser.uuid})")
                 handleExceptions { discordBot.syncUser(linkedUser, event.user.primaryGroup).join() }
                 userJobs.remove(uuid)
             }
