@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("org.jetbrains.kotlin.jvm") version "1.9.22"
+    kotlin("jvm") version "2.0.10"
+    id("com.gradleup.shadow") version "8.3.0"
     id("org.jetbrains.kotlin.kapt") version "1.9.22"
 }
 
@@ -34,13 +34,14 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.7.3")
     implementation(group = "com.uchuhimo", name = "konf", version = "0.22.1")
     implementation(group = "net.luckperms", name = "api", version = "5.1")
-    implementation(group = "org.jetbrains.exposed", name = "exposed-core", version = "0.51.1")
-    implementation(group = "org.jetbrains.exposed", name = "exposed-jdbc", version = "0.51.1")
-    implementation(group = "org.jetbrains.exposed", name = "exposed-java-time", version = "0.51.1")
+    implementation(group = "org.mariadb.jdbc", name = "mariadb-java-client", version = "3.5.1")
+    implementation(group = "org.jetbrains.exposed", name = "exposed-core", version = "0.58.0")
+    implementation(group = "org.jetbrains.exposed", name = "exposed-jdbc", version = "0.58.0")
+    implementation(group = "org.jetbrains.exposed", name = "exposed-java-time", version = "0.58.0")
     implementation(group = "mysql", name = "mysql-connector-java", version = "8.0.19")
     implementation(group = "org.xerial", name = "sqlite-jdbc", version = "3.30.1")
     implementation(group = "co.aikar", name = "acf-velocity", version = "0.5.1-SNAPSHOT")
-    implementation(group = "org.javacord", name = "javacord", version = "3.8.0")
+    compileOnly(group = "org.javacord", name = "javacord", version = "3.8.0")
     implementation(group = "com.velocitypowered", name = "velocity-api", version = "3.2.0-SNAPSHOT")
     kapt(group = "com.velocitypowered", name = "velocity-api", version = "3.2.0-SNAPSHOT")
 }

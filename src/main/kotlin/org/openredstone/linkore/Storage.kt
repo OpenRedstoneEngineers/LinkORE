@@ -20,10 +20,10 @@ class Storage(
     database: String,
     user: String,
     password: String,
-    driver: String = "com.mysql.cj.jdbc.Driver"
+    driver: String = "org.mariadb.jdbc.Driver"
 ) {
     private val db = Database.connect(
-        "jdbc:mysql://${host}:${port}/${database}",
+        "jdbc:mariadb://${host}:${port}/${database}",
         driver = driver,
         user = user,
         password = password
@@ -46,12 +46,18 @@ class Storage(
         Users.deleteWhere { discord_id eq discordId }
     }
 
-    fun getUser(discordId: Long): User? = doGetUser { Users.discord_id eq discordId }
-    fun getUser(uuid: UUID): User? = doGetUser { Users.uuid eq uuid.toString() }
-
-    private fun doGetUser(query: SqlExpressionBuilder.() -> Op<Boolean>) = transaction(db) {
-        Users.select(query).firstOrNull()?.let(::rowToUser)
+    fun getUser(discordId: Long): User? = transaction(db) {
+        Users.selectAll().where {
+            Users.discord_id eq discordId
+        }.firstOrNull()?.let(::rowToUser)
     }
+
+    fun getUser(uuid: UUID): User? = transaction(db) {
+        Users.selectAll().where{
+            Users.uuid eq uuid.toString()
+        }.firstOrNull()?.let(::rowToUser)
+    }
+
     private fun rowToUser(row: ResultRow) = User(
         name = row[Users.ign],
         uuid = UUID.fromString(row[Users.uuid]),
