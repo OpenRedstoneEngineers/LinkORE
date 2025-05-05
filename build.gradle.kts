@@ -1,9 +1,11 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "2.0.10"
-    id("com.gradleup.shadow") version "8.3.0"
-    id("org.jetbrains.kotlin.kapt") version "1.9.22"
+    val kotlinVersion = "2.1.10"
+    kotlin("jvm") version kotlinVersion
+    kotlin("kapt") version kotlinVersion
+    id("com.gradleup.shadow") version "8.3.6"
 }
 
 group = ""
@@ -11,21 +13,10 @@ version = "1.0"
 
 repositories {
     mavenCentral()
-    maven {
-        name = "sonatype-oss"
-        url = uri("https://oss.sonatype.org/content/groups/public/")
-    }
-    maven {
-        name = "aikar"
-        url = uri("https://repo.aikar.co/content/groups/aikar/")
-    }
-    maven {
-        url = uri("https://jitpack.io")
-    }
-    maven {
-        name = "velocity"
-        url = uri("https://nexus.velocitypowered.com/repository/maven-public/")
-    }
+    maven("https://oss.sonatype.org/content/groups/public/")
+    maven("https://repo.aikar.co/content/groups/aikar/")
+    maven("https://jitpack.io")
+    maven("https://nexus.velocitypowered.com/repository/maven-public/")
 }
 
 dependencies {
@@ -47,8 +38,15 @@ dependencies {
 }
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "17"
-    kotlinOptions.javaParameters = true
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_21)
+    }
+}
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
 }
 
 tasks.shadowJar {
