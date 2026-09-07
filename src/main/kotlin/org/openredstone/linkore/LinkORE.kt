@@ -11,6 +11,12 @@ import com.velocitypowered.api.plugin.Dependency
 import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import org.openredstone.linkore.commands.Discord
 import org.openredstone.linkore.commands.Linkore
 import net.luckperms.api.LuckPermsProvider
@@ -21,6 +27,15 @@ import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
+
+@OptIn(DelicateCoroutinesApi::class)
+fun runAsync(block: suspend CoroutineScope.() -> Unit) {
+    GlobalScope.launch(Dispatchers.Default) {
+        coroutineScope {
+            block()
+        }
+    }
+}
 
 fun UnlinkedUser.linkTo(discordId: Long): User = User(
     uuid = uuid,
@@ -73,18 +88,16 @@ class LinkORE @Inject constructor(
         val luckPerms = LuckPermsProvider.get()
         val tokens = Tokens()
         val database = Storage(
-            config[LinkoreSpec.database.host],
-            config[LinkoreSpec.database.port],
-            config[LinkoreSpec.database.database],
-            config[LinkoreSpec.database.username],
-            config[LinkoreSpec.database.password]
+            config[LinkoreSpec.Database.host],
+            config[LinkoreSpec.Database.port],
+            config[LinkoreSpec.Database.database],
+            config[LinkoreSpec.Database.username],
+            config[LinkoreSpec.Database.password]
         )
         val discordBot = DiscordBot(
-            config[LinkoreSpec.discord.botToken],
-            config[LinkoreSpec.discord.serverId],
-            config[LinkoreSpec.discord.playingMessage],
-            config[LinkoreSpec.discord.logChannelId],
-            config[LinkoreSpec.discord.track],
+            config[LinkoreSpec.Discord.botToken],
+            config[LinkoreSpec.Discord.serverId],
+            config[LinkoreSpec.Discord.track],
             luckPerms,
             logger,
             database,
