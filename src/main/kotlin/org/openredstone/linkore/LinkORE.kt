@@ -28,15 +28,6 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
-@OptIn(DelicateCoroutinesApi::class)
-fun runAsync(block: suspend CoroutineScope.() -> Unit) {
-    GlobalScope.launch(Dispatchers.Default) {
-        coroutineScope {
-            block()
-        }
-    }
-}
-
 fun UnlinkedUser.linkTo(discordId: Long): User = User(
     uuid = uuid,
     name = name,

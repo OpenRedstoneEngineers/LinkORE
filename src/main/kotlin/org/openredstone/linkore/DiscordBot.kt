@@ -53,6 +53,9 @@ class DiscordBot(
     private val database: Storage,
     private val tokens: Tokens
 ) {
+    // Coroutine handling
+    private val job = SupervisorJob()
+    private val scope = CoroutineScope(job + Dispatchers.Default)
     // Group 1 is the "Discord" alias, group 2 is the IGN
     private val nicknameRegex = Regex("""(.+?)\[(\w{3,16})\]""")
     private val possibleGroups = luckPerms.trackManager.getTrack(track)!!.groups.map {
@@ -67,7 +70,7 @@ class DiscordBot(
     private lateinit var whoisSlashCommand: GuildChatInputCommand
 
     init {
-        runAsync {
+        scope.launch {
             discordApi = Kord(token)
             launch {
                 discordApi.login {
@@ -92,10 +95,9 @@ class DiscordBot(
         }
     }
 
-    private suspend fun updateRoles() = guild.roles.toList().associateBy { it.name.lowercase() }
-
-    suspend fun clearDiscordUser(discordId: Long) =
+    fun clearDiscordUser(discordId: Long) = scope.launch {
         clearDiscordUser(guild.getMember(Snowflake(discordId)))
+    }
 
     private suspend fun clearDiscordUser(discordUser: Member) {
         // The discord roles this user is part of
@@ -108,7 +110,11 @@ class DiscordBot(
         handleExceptions { discordUser.edit { nickname = null } }
     }
 
-    suspend fun syncUser(user: User, primaryGroup: String = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup) {
+    fun syncUser(user: User, primaryGroup: String) = scope.launch {
+        syncUserInternal(user, primaryGroup)
+    }
+
+    private suspend fun syncUserInternal(user: User, primaryGroup: String = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup) {
         val discordUser = guild.getMember(Snowflake(user.discordId))
         handleExceptions { syncRoles(discordUser, primaryGroup) }
         handleExceptions { syncName(user, discordUser) }
@@ -140,7 +146,7 @@ class DiscordBot(
     }
 
     private suspend fun syncRoles(discordUser: Member, primaryGroupName: String) {
-        val roles = updateRoles()
+        val roles = guild.roles.toList().associateBy { it.name.lowercase() }
         if (!roles.keys.containsAll(possibleGroups)) {
             logger.error("Not all tracked groups appear in Discord. Aborting sync.")
             return
@@ -166,7 +172,7 @@ class DiscordBot(
     private suspend fun onJoin(event: MemberJoinEvent) {
         if (event.guild.id != guild) return
         val linkedUser = database.getUser(event.member.id.value.toLong()) ?: return
-        syncUser(linkedUser)
+        syncUserInternal(linkedUser)
     }
 
     private suspend fun responseHandler(interaction: GuildChatInputCommandInteraction) {
@@ -193,7 +199,7 @@ class DiscordBot(
         }
         val linkedUser = unlinkedUser.linkTo(user.id.value.toLong())
         database.linkUser(linkedUser)
-        syncUser(linkedUser)
+        syncUserInternal(linkedUser)
         interaction.basicResponse("You are now linked to **${linkedUser.name.discordEscape()}** (`${linkedUser.uuid}`)!")
     }
 
@@ -219,7 +225,7 @@ class DiscordBot(
         }
         logger.info("Performing force-sync for ${interaction.user.effectiveName} (${interaction.user.id})")
         clearDiscordUser(interaction.user)
-        syncUser(user)
+        syncUserInternal(user)
         interaction.basicResponse("Your Discord has been synced based on your linked user.")
     }
 
@@ -233,7 +239,7 @@ class DiscordBot(
             return
         }
         logger.info("Performing whois for ${interaction.user.effectiveName} (${interaction.user.id})")
-        syncUser(linkedUser)
+        syncUserInternal(linkedUser)
         interaction.basicResponse("User <@${argument.id}> is linked to ${linkedUser.name.discordEscape()} (`${linkedUser.uuid}`)")
     }
 
