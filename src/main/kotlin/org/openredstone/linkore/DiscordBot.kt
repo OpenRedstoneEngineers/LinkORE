@@ -127,10 +127,10 @@ class DiscordBot(
         }
         val matchResult = nicknameRegex.find(discNickname)
         val newName = if (matchResult == null) {
-            // Nickname is set, but could not match, setting again
+            // Discord ickname is set, but could not match, setting again
             user.name
         } else {
-            // Found existing alias, updating IGN using alias
+            // Found existing alias, update IGN section of Nickname using alias
             val existingAlias = matchResult.groupValues[1].trim()
             "$existingAlias [${user.name}]"
         }
