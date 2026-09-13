@@ -94,7 +94,7 @@ class DiscordBot(
         }
     }
 
-    suspend fun clearDiscordUser(discordId: Long) {
+    suspend fun clearDiscordUser(discordId: Long) = withContext(NonCancellable) {
         clearDiscordUser(guild.getMember(Snowflake(discordId)))
     }
 
