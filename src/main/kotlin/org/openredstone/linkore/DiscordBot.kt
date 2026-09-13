@@ -18,9 +18,10 @@ import dev.kord.gateway.PrivilegedIntent
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.request.KtorRequestException
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
+import kotlinx.coroutines.launch
 import net.luckperms.api.LuckPerms
 import org.slf4j.Logger
 import java.util.*
@@ -52,11 +53,9 @@ class DiscordBot(
     private val luckPerms: LuckPerms,
     private val logger: Logger,
     private val database: Storage,
-    private val tokens: Tokens
+    private val tokens: Tokens,
+    private val scope: CoroutineScope,
 ) {
-    // Coroutine handling
-    private val job = SupervisorJob()
-    private val scope = CoroutineScope(job + Dispatchers.Default)
     // Group 1 is the "Discord" alias, group 2 is the IGN
     private val nicknameRegex = Regex("""(.+?)\[(\w{3,16})\]""")
     private val possibleGroups = luckPerms.trackManager.getTrack(track)!!.groups.map {
@@ -99,7 +98,7 @@ class DiscordBot(
         }
     }
 
-    fun clearDiscordUser(discordId: Long) = scope.launch {
+    suspend fun clearDiscordUser(discordId: Long) {
         clearDiscordUser(guild.getMember(Snowflake(discordId)))
     }
 
@@ -114,11 +113,7 @@ class DiscordBot(
         handleExceptions { discordUser.edit { nickname = null } }
     }
 
-    fun syncUser(user: User, primaryGroup: String) = scope.launch {
-        syncUserInternal(user, primaryGroup)
-    }
-
-    private suspend fun syncUserInternal(user: User, primaryGroup: String = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup) {
+    suspend fun syncUser(user: User, primaryGroup: String = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup) {
         val discordUser = guild.getMember(Snowflake(user.discordId))
         handleExceptions { syncRoles(discordUser, primaryGroup) }
         handleExceptions { syncName(user, discordUser) }
@@ -176,7 +171,7 @@ class DiscordBot(
     private suspend fun onJoin(event: MemberJoinEvent) {
         if (event.guild.id != guild) return
         val linkedUser = database.getUser(event.member.id.value.toLong()) ?: return
-        syncUserInternal(linkedUser)
+        syncUser(linkedUser)
     }
 
     private suspend fun responseHandler(interaction: GuildChatInputCommandInteraction) {
@@ -203,7 +198,7 @@ class DiscordBot(
         }
         val linkedUser = unlinkedUser.linkTo(user.id.value.toLong())
         database.linkUser(linkedUser)
-        syncUserInternal(linkedUser)
+        syncUser(linkedUser)
         interaction.basicResponse("You are now linked to **${linkedUser.name.discordEscape()}** (`${linkedUser.uuid}`)!")
     }
 
@@ -229,7 +224,7 @@ class DiscordBot(
         }
         logger.info("Performing force-sync for ${interaction.user.effectiveName} (${interaction.user.id})")
         clearDiscordUser(interaction.user)
-        syncUserInternal(user)
+        syncUser(user)
         interaction.basicResponse("Your Discord has been synced based on your linked user.")
     }
 
@@ -243,7 +238,7 @@ class DiscordBot(
             return
         }
         logger.info("Performing whois for ${interaction.user.effectiveName} (${interaction.user.id})")
-        syncUserInternal(linkedUser)
+        syncUser(linkedUser)
         interaction.basicResponse("User <@${argument.id}> is linked to ${linkedUser.name.discordEscape()} (`${linkedUser.uuid}`)")
     }
 

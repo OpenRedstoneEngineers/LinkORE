@@ -7,25 +7,23 @@ import com.uchuhimo.konf.source.yaml
 import com.uchuhimo.konf.source.yaml.toYaml
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
+import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.Dependency
 import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.future.asCompletableFuture
+import net.luckperms.api.LuckPermsProvider
 import org.openredstone.linkore.commands.Discord
 import org.openredstone.linkore.commands.Linkore
-import net.luckperms.api.LuckPermsProvider
 import org.slf4j.Logger
 import java.io.File
 import java.nio.file.Path
 import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 
 fun UnlinkedUser.linkTo(discordId: Long): User = User(
@@ -72,6 +70,9 @@ class LinkORE @Inject constructor(
 ) {
     private lateinit var config: Config
     private val dataFolder = dataFolder.toFile()
+    // Coroutine handling
+    private val job = SupervisorJob()
+    private val scope = CoroutineScope(job + Dispatchers.Default)
 
     @Subscribe
     fun onProxyInitialization(event: ProxyInitializeEvent) {
@@ -93,15 +94,23 @@ class LinkORE @Inject constructor(
             luckPerms,
             logger,
             database,
-            tokens
+            tokens,
+            scope
         )
         startLuckPermsListener(database, discordBot, this, this.proxy.scheduler, luckPerms)
         VelocityCommandManager(proxy, this).apply {
-            registerCommand(Linkore(VERSION, database, discordBot))
-            registerCommand(Discord(database, discordBot, tokens))
+            registerCommand(Linkore(this@LinkORE, VERSION, database, discordBot))
+            registerCommand(Discord(this@LinkORE, database, discordBot, tokens))
         }
         logger.info("Loaded LinkORE!!!")
     }
+
+    @Subscribe
+    fun onProxyShutdown(event: ProxyShutdownEvent) {
+        scope.cancel()
+    }
+
+    fun <T> future(block: suspend () -> T): CompletableFuture<T> = scope.async { block() }.asCompletableFuture()
 
     private fun loadConfig(reloaded: Boolean = false): Config {
         if (!dataFolder.exists()) {

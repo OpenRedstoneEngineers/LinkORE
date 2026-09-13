@@ -1,14 +1,10 @@
 package org.openredstone.linkore.commands
 
 import co.aikar.commands.BaseCommand
-import co.aikar.commands.annotation.CatchUnknown
-import co.aikar.commands.annotation.CommandAlias
-import co.aikar.commands.annotation.CommandPermission
-import co.aikar.commands.annotation.Default
-import co.aikar.commands.annotation.Single
-import co.aikar.commands.annotation.Subcommand
+import co.aikar.commands.annotation.*
 import com.velocitypowered.api.proxy.Player
 import org.openredstone.linkore.DiscordBot
+import org.openredstone.linkore.LinkORE
 import org.openredstone.linkore.Storage
 import org.openredstone.linkore.sendDeserialized
 import java.util.*
@@ -16,10 +12,11 @@ import java.util.*
 @CommandAlias("linkore")
 @CommandPermission("linkore.manage")
 class Linkore(
-        private val version: String,
-        private val database: Storage,
-        private val discordBot: DiscordBot
-    ) : BaseCommand() {
+    private val linkore: LinkORE,
+    private val version: String,
+    private val database: Storage,
+    private val discordBot: DiscordBot
+) : BaseCommand() {
     @Default
     @CatchUnknown
     @Subcommand("version")
@@ -48,8 +45,10 @@ class Linkore(
                 return
             }
         }
-        discordBot.clearDiscordUser(linkedUser.discordId)
-        database.unlinkUser(linkedUser.discordId)
-        player.sendDeserialized("Unlinked ${linkedUser.name} from $discordId")
+        linkore.future {
+            discordBot.clearDiscordUser(linkedUser.discordId)
+            database.unlinkUser(linkedUser.discordId)
+            player.sendDeserialized("Unlinked ${linkedUser.name} from $discordId")
+        }
     }
 }
