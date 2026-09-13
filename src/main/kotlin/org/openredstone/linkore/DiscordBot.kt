@@ -31,17 +31,14 @@ import java.util.*
 
 private fun String.discordEscape() = this.replace("""_""", "\\_")
 
-private inline fun <T> handleExceptions(action: () -> T): T? {
-    return try {
-        action()
-    } catch (exception: RequestException) {
-        println(exception)
-        null
-    }
-}
-
 private suspend fun GuildChatInputCommandInteraction.basicResponse(message: String) {
     respondEphemeral { content = message }
+}
+
+private suspend fun Member.trySetNickname(newNickname: String?) = try {
+    this.edit { nickname = newNickname }
+} catch (_: RequestException) {
+    println("Failed to set nickname for ${this.id}")
 }
 
 class DiscordBot(
@@ -109,21 +106,21 @@ class DiscordBot(
         currentRoles.forEach {
             discordUser.removeRole(it.id)
         }
-        handleExceptions { discordUser.edit { nickname = null } }
+        discordUser.trySetNickname(null)
     }
 
     suspend fun syncUser(user: User, primaryGroup: String? = null) = withContext(NonCancellable) {
         val applicableGroup = primaryGroup ?: luckPerms.userManager.loadUser(user.uuid).await().primaryGroup
         val discordUser = guild.getMember(Snowflake(user.discordId))
-        handleExceptions { syncRoles(discordUser, applicableGroup) }
-        handleExceptions { syncName(user, discordUser) }
+        syncRoles(discordUser, applicableGroup)
+        syncName(user, discordUser)
     }
 
     private suspend fun syncName(user: User, discordUser: Member) {
         val discNickname = discordUser.nickname
         if (discNickname == null) {
             // No nickname present, setting it
-            discordUser.edit { nickname = user.name }
+            discordUser.trySetNickname(user.name)
             return
         }
         if (discNickname == user.name || discNickname.endsWith(" [${user.name}]")) {
@@ -139,9 +136,7 @@ class DiscordBot(
             val existingAlias = matchResult.groupValues[1].trim()
             "$existingAlias [${user.name}]"
         }
-        discordUser.edit {
-            nickname = newName
-        }
+        discordUser.trySetNickname(newName)
     }
 
     private suspend fun syncRoles(discordUser: Member, primaryGroupName: String) {
