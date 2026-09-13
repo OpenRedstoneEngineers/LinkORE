@@ -95,7 +95,7 @@ class LinkORE @Inject constructor(
             tokens,
             scope
         )
-        startLuckPermsListener(database, discordBot, this, this.proxy.scheduler, luckPerms)
+        startLuckPermsListener(database, discordBot, this, luckPerms)
         VelocityCommandManager(proxy, this).apply {
             registerCommand(Linkore(this@LinkORE, VERSION, database, discordBot))
             registerCommand(Discord(this@LinkORE, database, discordBot, tokens))

@@ -1,6 +1,5 @@
 package org.openredstone.linkore
 
-import com.velocitypowered.api.scheduler.Scheduler
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -14,7 +13,6 @@ fun startLuckPermsListener(
     database: Storage,
     discordBot: DiscordBot,
     linkore: LinkORE,
-    scheduler: Scheduler,
     lpApi: LuckPerms
 ) {
     val userJobs = ConcurrentHashMap<UUID, Job>()
