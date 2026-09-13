@@ -47,6 +47,7 @@ private suspend fun GuildChatInputCommandInteraction.basicResponse(message: Stri
 class DiscordBot(
     token: String,
     serverId: Long,
+    playingMessage: String,
     track: String,
     private val luckPerms: LuckPerms,
     private val logger: Logger,
@@ -76,6 +77,9 @@ class DiscordBot(
                 discordApi.login {
                     @OptIn(PrivilegedIntent::class)
                     intents += Intent.MessageContent
+                    presence {
+                        playing(playingMessage)
+                    }
                 }
             }
             guild = discordApi.getGuild(Snowflake(serverId))

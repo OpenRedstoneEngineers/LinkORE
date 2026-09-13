@@ -88,6 +88,7 @@ class LinkORE @Inject constructor(
         val discordBot = DiscordBot(
             config[LinkoreSpec.Discord.botToken],
             config[LinkoreSpec.Discord.serverId],
+            config[LinkoreSpec.Discord.playingMessage],
             config[LinkoreSpec.Discord.track],
             luckPerms,
             logger,
