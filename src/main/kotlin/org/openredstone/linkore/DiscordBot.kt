@@ -19,9 +19,11 @@ import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.user
 import dev.kord.rest.request.KtorRequestException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.luckperms.api.LuckPerms
 import org.slf4j.Logger
 import java.util.*
@@ -113,7 +115,10 @@ class DiscordBot(
         handleExceptions { discordUser.edit { nickname = null } }
     }
 
-    suspend fun syncUser(user: User, primaryGroup: String = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup) {
+    suspend fun syncUser(
+        user: User,
+        primaryGroup: String = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup
+    ) = withContext(NonCancellable) {
         val discordUser = guild.getMember(Snowflake(user.discordId))
         handleExceptions { syncRoles(discordUser, primaryGroup) }
         handleExceptions { syncName(user, discordUser) }
