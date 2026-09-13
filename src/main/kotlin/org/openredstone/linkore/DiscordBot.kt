@@ -35,12 +35,6 @@ private suspend fun GuildChatInputCommandInteraction.basicResponse(message: Stri
     respondEphemeral { content = message }
 }
 
-private suspend fun Member.trySetNickname(newNickname: String?) = try {
-    this.edit { nickname = newNickname }
-} catch (_: RequestException) {
-    println("Failed to set nickname for ${this.id}")
-}
-
 class DiscordBot(
     token: String,
     serverId: Long,
@@ -92,6 +86,12 @@ class DiscordBot(
                 onJoin(this)
             }
         }
+    }
+
+    private suspend fun Member.trySetNickname(newNickname: String?) = try {
+        this.edit { nickname = newNickname }
+    } catch (_: RequestException) {
+        logger.error("Failed to set nickname for ${this.id}")
     }
 
     suspend fun clearDiscordUser(discordId: Long) = withContext(NonCancellable) {
