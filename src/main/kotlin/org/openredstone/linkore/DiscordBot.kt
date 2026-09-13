@@ -26,9 +26,9 @@ import org.slf4j.Logger
 import java.util.*
 import java.util.concurrent.CompletionException
 
-fun String.discordEscape() = this.replace("""_""", "\\_")
+private fun String.discordEscape() = this.replace("""_""", "\\_")
 
-inline fun <T> handleExceptions(action: () -> T): T? {
+private inline fun <T> handleExceptions(action: () -> T): T? {
     return try {
         action()
     } catch (exception: KtorRequestException) {
@@ -40,7 +40,7 @@ inline fun <T> handleExceptions(action: () -> T): T? {
     }
 }
 
-suspend fun GuildChatInputCommandInteraction.basicResponse(message: String) {
+private suspend fun GuildChatInputCommandInteraction.basicResponse(message: String) {
     respondEphemeral { content = message }
 }
 
