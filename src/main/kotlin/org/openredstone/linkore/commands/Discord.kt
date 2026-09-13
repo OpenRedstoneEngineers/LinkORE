@@ -60,15 +60,13 @@ class Discord(
             .decorate(TextDecoration.ITALIC, TextDecoration.BOLD))
     }
     @Subcommand("unlink")
-    fun unlink(player: Player) {
+    fun unlink(player: Player) = linkore.future {
         val existingUser = database.getUser(player.uniqueId) ?: run {
             player.sendDeserialized("You are not currently linked.")
-            return
+            return@future
         }
-        linkore.future {
-            discordBot.clearDiscordUser(existingUser.discordId)
-            database.unlinkUser(existingUser.discordId)
-            player.sendDeserialized("You should now be unlinked.")
-        }
+        discordBot.clearDiscordUser(existingUser.discordId)
+        database.unlinkUser(existingUser.discordId)
+        player.sendDeserialized("You should now be unlinked.")
     }
 }

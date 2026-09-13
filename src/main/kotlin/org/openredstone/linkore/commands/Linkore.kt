@@ -26,29 +26,27 @@ class Linkore(
 
     @Subcommand("unlink")
     @CommandPermission("linkore.manage.unlink")
-    fun unlink(player: Player, @Single arg: String) {
+    fun unlink(player: Player, @Single arg: String) = linkore.future {
         val discordId = arg.toLongOrNull()
         val linkedUser = if (discordId == null) {
             val parsedUuid = try {
                 UUID.fromString(arg)
             } catch (e: IllegalArgumentException) {
                 player.sendDeserialized("Invalid UUID provided: $arg")
-                return
+                return@future
             }
             database.getUser(parsedUuid) ?: run {
                 player.sendDeserialized("User by UUID $parsedUuid is not linked")
-                return
+                return@future
             }
         } else {
             database.getUser(discordId) ?: run {
                 player.sendDeserialized("User by ID $discordId is not linked")
-                return
+                return@future
             }
         }
-        linkore.future {
-            discordBot.clearDiscordUser(linkedUser.discordId)
-            database.unlinkUser(linkedUser.discordId)
-            player.sendDeserialized("Unlinked ${linkedUser.name} from $discordId")
-        }
+        discordBot.clearDiscordUser(linkedUser.discordId)
+        database.unlinkUser(linkedUser.discordId)
+        player.sendDeserialized("Unlinked ${linkedUser.name} from $discordId")
     }
 }
