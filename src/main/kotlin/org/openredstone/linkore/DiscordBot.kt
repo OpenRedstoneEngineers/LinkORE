@@ -101,7 +101,7 @@ class DiscordBot(
         clearDiscordUser(guild.getMember(Snowflake(discordId)))
     }
 
-    private suspend fun clearDiscordUser(discordUser: Member) {
+    private suspend fun clearDiscordUser(discordUser: Member) = withContext(NonCancellable) {
         // The discord roles this user is part of
         val discRoles = discordUser.roles.toList()
         // The user's roles we actually care about
