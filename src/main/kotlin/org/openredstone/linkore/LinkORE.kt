@@ -7,19 +7,23 @@ import com.uchuhimo.konf.source.yaml
 import com.uchuhimo.konf.source.yaml.toYaml
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
+import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
 import com.velocitypowered.api.plugin.Dependency
 import com.velocitypowered.api.plugin.Plugin
 import com.velocitypowered.api.plugin.annotation.DataDirectory
 import com.velocitypowered.api.proxy.ProxyServer
+import kotlinx.coroutines.*
+import kotlinx.coroutines.future.asCompletableFuture
+import net.luckperms.api.LuckPermsProvider
 import org.openredstone.linkore.commands.Discord
 import org.openredstone.linkore.commands.Linkore
-import net.luckperms.api.LuckPermsProvider
 import org.slf4j.Logger
 import java.io.File
 import java.nio.file.Path
 import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 
 fun UnlinkedUser.linkTo(discordId: Long): User = User(
@@ -64,6 +68,7 @@ class LinkORE @Inject constructor(
     val logger: Logger,
     @DataDirectory dataFolder: Path,
 ) {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private lateinit var config: Config
     private val dataFolder = dataFolder.toFile()
 
@@ -73,30 +78,37 @@ class LinkORE @Inject constructor(
         val luckPerms = LuckPermsProvider.get()
         val tokens = Tokens()
         val database = Storage(
-            config[LinkoreSpec.database.host],
-            config[LinkoreSpec.database.port],
-            config[LinkoreSpec.database.database],
-            config[LinkoreSpec.database.username],
-            config[LinkoreSpec.database.password]
+            config[LinkoreSpec.Database.host],
+            config[LinkoreSpec.Database.port],
+            config[LinkoreSpec.Database.database],
+            config[LinkoreSpec.Database.username],
+            config[LinkoreSpec.Database.password]
         )
         val discordBot = DiscordBot(
-            config[LinkoreSpec.discord.botToken],
-            config[LinkoreSpec.discord.serverId],
-            config[LinkoreSpec.discord.playingMessage],
-            config[LinkoreSpec.discord.logChannelId],
-            config[LinkoreSpec.discord.track],
+            config[LinkoreSpec.Discord.botToken],
+            config[LinkoreSpec.Discord.serverId],
+            config[LinkoreSpec.Discord.playingMessage],
+            config[LinkoreSpec.Discord.track],
             luckPerms,
             logger,
             database,
-            tokens
+            tokens,
+            scope
         )
-        startLuckPermsListener(database, discordBot, this, this.proxy.scheduler, luckPerms)
+        startLuckPermsListener(database, discordBot, this, luckPerms)
         VelocityCommandManager(proxy, this).apply {
-            registerCommand(Linkore(VERSION, database, discordBot))
-            registerCommand(Discord(database, discordBot, tokens))
+            registerCommand(Linkore(this@LinkORE, VERSION, database, discordBot))
+            registerCommand(Discord(this@LinkORE, database, discordBot, tokens))
         }
         logger.info("Loaded LinkORE!!!")
     }
+
+    @Subscribe
+    fun onProxyShutdown(event: ProxyShutdownEvent) {
+        scope.cancel()
+    }
+
+    fun <T> future(block: suspend () -> T): CompletableFuture<T> = scope.async { block() }.asCompletableFuture()
 
     private fun loadConfig(reloaded: Boolean = false): Config {
         if (!dataFolder.exists()) {

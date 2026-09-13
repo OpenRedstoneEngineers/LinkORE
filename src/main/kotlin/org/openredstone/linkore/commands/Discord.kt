@@ -17,9 +17,10 @@ import org.openredstone.linkore.*
 @CommandAlias("discord")
 @CommandPermission("linkore.discord")
 class Discord(
-        private val database: Storage,
-        private val discordBot: DiscordBot,
-        private val tokens: Tokens
+    private val linkore: LinkORE,
+    private val database: Storage,
+    private val discordBot: DiscordBot,
+    private val tokens: Tokens
 ) : BaseCommand() {
     @Default
     @Subcommand("link")
@@ -59,12 +60,12 @@ class Discord(
             .decorate(TextDecoration.ITALIC, TextDecoration.BOLD))
     }
     @Subcommand("unlink")
-    fun unlink(player: Player) {
+    fun unlink(player: Player) = linkore.future {
         val existingUser = database.getUser(player.uniqueId) ?: run {
             player.sendDeserialized("You are not currently linked.")
-            return
+            return@future
         }
-        handleExceptions { discordBot.clearDiscordUser(existingUser.discordId).join() }
+        discordBot.clearDiscordUser(existingUser.discordId)
         database.unlinkUser(existingUser.discordId)
         player.sendDeserialized("You should now be unlinked.")
     }
