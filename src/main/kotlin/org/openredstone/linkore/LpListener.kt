@@ -25,6 +25,7 @@ fun startLuckPermsListener(
         val linkedUser = database.getUser(event.user.uniqueId) ?: return
         userJobs[uuid]?.cancel()
         userJobs[uuid] = linkore.scope.launch {
+            // To debounce the event, as it can get triggered multiple times in quick succession
             delay(waitMs.milliseconds)
             linkore.proxy.getPlayer(event.user.uniqueId).ifPresent {
                 val username = it.username
