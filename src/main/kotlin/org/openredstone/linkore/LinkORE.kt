@@ -70,9 +70,7 @@ class LinkORE @Inject constructor(
 ) {
     private lateinit var config: Config
     private val dataFolder = dataFolder.toFile()
-    // Coroutine handling
-    private val job = SupervisorJob()
-    private val scope = CoroutineScope(job + Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Subscribe
     fun onProxyInitialization(event: ProxyInitializeEvent) {
