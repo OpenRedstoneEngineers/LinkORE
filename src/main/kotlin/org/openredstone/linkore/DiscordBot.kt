@@ -22,6 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.luckperms.api.LuckPerms
@@ -111,12 +112,10 @@ class DiscordBot(
         handleExceptions { discordUser.edit { nickname = null } }
     }
 
-    suspend fun syncUser(
-        user: User,
-        primaryGroup: String = luckPerms.userManager.loadUser(user.uuid).join().primaryGroup
-    ) = withContext(NonCancellable) {
+    suspend fun syncUser(user: User, primaryGroup: String? = null) = withContext(NonCancellable) {
+        val applicableGroup = primaryGroup ?: luckPerms.userManager.loadUser(user.uuid).await().primaryGroup
         val discordUser = guild.getMember(Snowflake(user.discordId))
-        handleExceptions { syncRoles(discordUser, primaryGroup) }
+        handleExceptions { syncRoles(discordUser, applicableGroup) }
         handleExceptions { syncName(user, discordUser) }
     }
 
