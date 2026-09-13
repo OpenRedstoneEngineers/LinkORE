@@ -3,6 +3,7 @@ package org.openredstone.linkore
 import dev.kord.common.entity.Permission
 import dev.kord.common.entity.Permissions
 import dev.kord.common.entity.Snowflake
+import dev.kord.common.exception.RequestException
 import dev.kord.core.Kord
 import dev.kord.core.behavior.edit
 import dev.kord.core.behavior.interaction.respondEphemeral
@@ -17,7 +18,6 @@ import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.user
-import dev.kord.rest.request.KtorRequestException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.toList
@@ -27,17 +27,13 @@ import kotlinx.coroutines.withContext
 import net.luckperms.api.LuckPerms
 import org.slf4j.Logger
 import java.util.*
-import java.util.concurrent.CompletionException
 
 private fun String.discordEscape() = this.replace("""_""", "\\_")
 
 private inline fun <T> handleExceptions(action: () -> T): T? {
     return try {
         action()
-    } catch (exception: KtorRequestException) {
-        println(exception)
-        null
-    } catch (exception: CompletionException) {
+    } catch (exception: RequestException) {
         println(exception)
         null
     }
