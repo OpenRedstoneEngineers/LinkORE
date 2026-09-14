@@ -94,7 +94,7 @@ class DiscordBot(
         logger.error("Failed to set nickname for ${this.id}")
     }
 
-    suspend fun clearDiscordUser(discordId: Long) = withContext(NonCancellable) {
+    suspend fun clearDiscordUser(discordId: Long) {
         clearDiscordUser(guild.getMember(Snowflake(discordId)))
     }
 
