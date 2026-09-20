@@ -85,22 +85,22 @@ class LinkORE @Inject constructor(
             config[LinkoreSpec.Database.password]
         )
         val discordBot = DiscordBot(
+            config[LinkoreSpec.Discord.track],
             config[LinkoreSpec.Discord.botToken],
             config[LinkoreSpec.Discord.serverId],
             config[LinkoreSpec.Discord.playingMessage],
-            config[LinkoreSpec.Discord.track],
             luckPerms,
             logger,
             database,
-            tokens,
-            scope
+            tokens
         )
+        scope.launch { discordBot.init() }
         startLuckPermsListener(database, discordBot, this, luckPerms)
         VelocityCommandManager(proxy, this).apply {
             registerCommand(Linkore(this@LinkORE, VERSION, database, discordBot))
             registerCommand(Discord(this@LinkORE, database, discordBot, tokens))
         }
-        logger.info("Loaded LinkORE!!!")
+        logger.info("Loaded LinkORE")
     }
 
     @Subscribe

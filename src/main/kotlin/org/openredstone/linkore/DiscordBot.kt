@@ -18,12 +18,10 @@ import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.user
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
 import kotlinx.coroutines.future.await
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.luckperms.api.LuckPerms
 import org.slf4j.Logger
@@ -36,15 +34,14 @@ private suspend fun GuildChatInputCommandInteraction.basicResponse(message: Stri
 }
 
 class DiscordBot(
-    token: String,
-    serverId: Long,
-    playingMessage: String,
     track: String,
+    private val token: String,
+    private val serverId: Long,
+    private val playingMessage: String,
     private val luckPerms: LuckPerms,
     private val logger: Logger,
     private val database: Storage,
     private val tokens: Tokens,
-    private val scope: CoroutineScope,
 ) {
     // Group 1 is the "Discord" alias, group 2 is the IGN
     private val nicknameRegex = Regex("""(.+?)\[(\w{3,16})\]""")
@@ -59,31 +56,28 @@ class DiscordBot(
     private lateinit var unlinkSlashCommand: GuildChatInputCommand
     private lateinit var whoisSlashCommand: GuildChatInputCommand
 
-    init {
-        scope.launch {
-            discordApi = Kord(token)
-            launch {
-                discordApi.login {
-                    @OptIn(PrivilegedIntent::class)
-                    intents += Intent.MessageContent
-                    presence {
-                        playing(playingMessage)
-                    }
-                }
+    suspend fun init() {
+        discordApi = Kord(token)
+        guild = discordApi.getGuild(Snowflake(serverId))
+        authSlashCommand = createAuthSlashCommand()
+        discordSlashCommand = createDiscordSlashCommand()
+        forceSyncSlashCommand = createForceSyncSlashCommand()
+        unlinkSlashCommand = createUnlinkSlashCommand()
+        whoisSlashCommand = createWhoisSlashCommand()
+        discordApi.on<GuildChatInputCommandInteractionCreateEvent> {
+            if (interaction.guild.id == guild.id) {
+                responseHandler(interaction)
             }
-            guild = discordApi.getGuild(Snowflake(serverId))
-            authSlashCommand = createAuthSlashCommand()
-            discordSlashCommand = createDiscordSlashCommand()
-            forceSyncSlashCommand = createForceSyncSlashCommand()
-            unlinkSlashCommand = createUnlinkSlashCommand()
-            whoisSlashCommand = createWhoisSlashCommand()
-            discordApi.on<GuildChatInputCommandInteractionCreateEvent> {
-                if (interaction.guild.id == guild.id) {
-                    responseHandler(interaction)
-                }
-            }
-            discordApi.on<MemberJoinEvent> {
-                onJoin(this)
+        }
+        discordApi.on<MemberJoinEvent> {
+            onJoin(this)
+        }
+        // Login last, as it is suspending
+        discordApi.login {
+            @OptIn(PrivilegedIntent::class)
+            intents += Intent.MessageContent
+            presence {
+                playing(playingMessage)
             }
         }
     }
