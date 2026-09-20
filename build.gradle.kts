@@ -12,6 +12,7 @@ version = "1.0"
 
 repositories {
     mavenCentral()
+    maven("https://snapshots.kord.dev")
     maven("https://oss.sonatype.org/content/groups/public/")
     maven("https://repo.aikar.co/content/groups/aikar/")
     maven("https://jitpack.io")
