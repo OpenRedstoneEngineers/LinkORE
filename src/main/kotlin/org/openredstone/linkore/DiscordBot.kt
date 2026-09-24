@@ -18,10 +18,12 @@ import dev.kord.gateway.Intent
 import dev.kord.gateway.PrivilegedIntent
 import dev.kord.rest.builder.interaction.string
 import dev.kord.rest.builder.interaction.user
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
 import kotlinx.coroutines.future.await
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.luckperms.api.LuckPerms
 import org.slf4j.Logger
@@ -56,7 +58,7 @@ class DiscordBot(
     private lateinit var unlinkSlashCommand: GuildChatInputCommand
     private lateinit var whoisSlashCommand: GuildChatInputCommand
 
-    suspend fun init() {
+    suspend fun CoroutineScope.init() {
         discordApi = Kord(token)
         guild = discordApi.getGuild(Snowflake(serverId))
         authSlashCommand = createAuthSlashCommand()
@@ -72,12 +74,13 @@ class DiscordBot(
         discordApi.on<MemberJoinEvent> {
             onJoin(this)
         }
-        // Login last, as it is suspending
-        discordApi.login {
-            @OptIn(PrivilegedIntent::class)
-            intents += Intent.MessageContent
-            presence {
-                playing(playingMessage)
+        launch {
+            discordApi.login {
+                @OptIn(PrivilegedIntent::class)
+                intents += Intent.MessageContent
+                presence {
+                    playing(playingMessage)
+                }
             }
         }
     }

@@ -5,6 +5,7 @@ import com.google.inject.Inject
 import com.uchuhimo.konf.Config
 import com.uchuhimo.konf.source.yaml
 import com.uchuhimo.konf.source.yaml.toYaml
+import com.velocitypowered.api.event.EventTask
 import com.velocitypowered.api.event.Subscribe
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent
@@ -73,7 +74,7 @@ class LinkORE @Inject constructor(
     private val dataFolder = dataFolder.toFile()
 
     @Subscribe
-    fun onProxyInitialization(event: ProxyInitializeEvent) {
+    fun onProxyInitialization(event: ProxyInitializeEvent) = eventTask {
         config = loadConfig()
         val luckPerms = LuckPermsProvider.get()
         val tokens = Tokens()
@@ -94,7 +95,7 @@ class LinkORE @Inject constructor(
             database,
             tokens
         )
-        scope.launch { discordBot.init() }
+        discordBot.apply { scope.init() }
         startLuckPermsListener(database, discordBot, this, luckPerms)
         VelocityCommandManager(proxy, this).apply {
             registerCommand(Linkore(this@LinkORE, VERSION, database, discordBot))
@@ -107,6 +108,8 @@ class LinkORE @Inject constructor(
     fun onProxyShutdown(event: ProxyShutdownEvent) {
         scope.cancel()
     }
+
+    fun eventTask(block: suspend () -> Unit): EventTask = EventTask.resumeWhenComplete(future(block))
 
     fun <T> future(block: suspend () -> T): CompletableFuture<T> = scope.async { block() }.asCompletableFuture()
 
